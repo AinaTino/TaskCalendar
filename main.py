@@ -3,8 +3,9 @@ from pathlib import Path
 import requests
 from flask import Flask, jsonify, request, session
 
+# To change host and port, change the value of these variables 
 host="127.0.0.1"
-port=6969
+port=5000
 
 def create_db():
     '''Create a new database if the db don't exists'''
@@ -22,6 +23,12 @@ def dict_factory(cursor,row):
         result[j[0]] = row[i]
     return result
 
+def open_db():
+    conn=sqlite3.connect("data.db")
+    conn.row_factory = dict_factory
+    cur=conn.cursor()
+    return conn,cur
+
 def close_db(conn,cur):
     cur.close()
     conn.close()
@@ -34,26 +41,34 @@ if not Path('./data.db').resolve().exists() :
     create_db()
 
 #------------------------------------login-------------------------------------------------
-@app.route('/api/login',methods =['GET'])
+@app.route('/api/login',methods =['POST'])
 def login():
     all_user = (requests.get(f"http://{host}:{port}/api/users")).json()
     log = request.get_json()
     name = log.get("username")
     passwd = log.get("password")
+
+    if '' in {name,passwd} or None in {name,passwd}:
+        return jsonify({"error": "Bad Request: Invalid input"}),400
+
     if session.get('connected'):
-        return jsonify("Error: An user is already connected")
+        return jsonify({"error": "Forbidden: An user is already connected"}),403
+
     for i in all_user:
         if i["username"] == name:
             if i["password"] == passwd:
-                return jsonify("Success")
+                return jsonify({"message":"OK: Connected"}),200
                 session['connected'] = True
-            return jsonify("Error: Wrong password")
-    return "Error: User not found"
+            return jsonify({"error" : "Unauthorized: wrong password"}),401
+    return jsonify({"error" : "User not found"}),404
 
-@app.route('/api/disconnection',methods=['GET'])
+
+@app.route('/api/disconnection',methods=['POST'])
 def disconnection():
+    if not session.get('connected'):
+        return jsonify({"error": "Forbidden: No user connected"}),403
     session['connected'] = False
-    return jsonify("Deconnected")
+    return jsonify(''),200
 
 #------------------------------------user-api-----------------------------------------------
 @app.route('/api/users',methods=['POST'])
@@ -62,45 +77,43 @@ def add_user():
     info=request.get_json()
     user= info.get('username')
     password = info.get('password')
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
-    all_users = cur.execute("SELECT * FROM Users").fetchall() 
+
+    if '' in {user,password} or None in {user,password}:
+        return jsonify({"error" : "Bad Request: Invalid input"}),400
+
+    conn,cur = open_db()
+    all_users = cur.execute("SELECT username FROM Users").fetchall() 
     all_username = [dict.get(x,'username') for x in all_users]
+
     if user in all_username:
-        return jsonify('Error: User already exists')
-    new_id = len(all_username) + 1
-    cur.execute("INSERT INTO Users VALUES (?,?,?)",[new_id,user,password])
-    all_users.append({
+        return jsonify({"error": "Conflict: User already exists"}),409
+    cur.execute("INSERT INTO Users (username,password) VALUES (?,?)",[user,password])
+    conn.commit()
+    new_id = ((cur.execute("SELECT id FROM Users WHERE username = ?",[user]).fetchall())[0])['id']
+    close_db(conn,cur)
+
+    return jsonify({
         "id" : new_id,
         "username" : user,
-        "pwd" : password,
-    })
-    conn.commit()
-    close_db(conn,cur)
-    print(cur.execute("SELECT * FROM Users ").fetchall())
-    return jsonify(all_users)
+        "password" : password
+    }),201
 
 @app.route('/api/users',methods=['GET'])
 def get_all_users(): 
     '''Get all users'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+    conn,cur = open_db()
     all_users = cur.execute("SELECT * FROM Users").fetchall()
     close_db(conn,cur)
-    return jsonify(all_users)
+    return jsonify(all_users),200
 
 @app.route('/api/users/<int:user_id>',methods = ['GET'])
 def get_user(user_id):
     '''Get user by id'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+    conn,cur = open_db()
     user = cur.execute("SELECT * FROM Users WHERE id = ?",[user_id]).fetchall()
-    if len(user)==0: return jsonify("Error: User not found")
+    if len(user)==0: return jsonify({"error": "User not found"}),404
     close_db(conn,cur)
-    return jsonify(user[0])
+    return jsonify(user[0]),200
 
 @app.route('/api/users/<int:user_id>',methods=['PUT'])
 def update_user(user_id):
@@ -108,9 +121,16 @@ def update_user(user_id):
     new_info=request.get_json()
     user = new_info.get('username')
     password = new_info.get('password')
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+
+    if user in {None,''} and password in {None,''}:
+        return jsonify({"error" : "Bad Request: Invalid input"}),400
+    
+    conn,cur = open_db()
+
+    user_data = cur.execute("SELECT * FROM Users WHERE id = ?",[user_id]).fetchall()
+    if len(user_data) == 0: 
+        return jsonify({"error" : "User not found"}),404
+
     if user != None:
         cur.execute("UPDATE Users SET username=? WHERE id=?",[user,user_id])
         conn.commit()
@@ -119,21 +139,20 @@ def update_user(user_id):
         conn.commit()
     result = cur.execute("SELECT * FROM Users WHERE id=?",[user_id]).fetchall()
     close_db(conn,cur)
-    return jsonify(result[0])
+    return jsonify(result[0]),200
 
 @app.route('/api/users/<int:user_id>',methods=['DELETE'])
 def delete_user(user_id):
     '''Delete an user'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+    conn,cur = open_db()
     cur_del=cur.execute("SELECT * FROM Users WHERE id=?",[user_id]).fetchall()
-    if len(cur_del)==0: return jsonify("Error: User not found")
+    if len(cur_del)==0: return jsonify({"error": "User not found"}),404
+
     cur.execute("DELETE FROM Users WHERE id = ?",[user_id])
     cur.execute("DELETE FROM Task WHERE user_id = ?",[ (cur_del[0])['id'] ])
     conn.commit()
     close_db(conn,cur)
-    return jsonify(cur_del[0])
+    return jsonify(''),204
 
 #-----------------------------------task-api-----------------------------------------------
 @app.route('/api/task/<int:user_id>',methods=['POST'])
@@ -142,107 +161,126 @@ def create_task(user_id):
     task_info=request.get_json()
     task_desc = task_info.get("description")
     task_date = task_info.get("date")
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
-    all_users = cur.execute("SELECT id FROM Users").fetchall()
-    if user_id not in [x['id'] for x in all_users]: return jsonify("Error: User not found")
-    task_id = len(cur.execute("SELECT * FROM Task").fetchall()) + 1
-    cur.execute("INSERT INTO Task VALUES (?,?,?,?)",[task_id,task_desc,task_date,user_id])
+
+    if '' in {task_desc,task_date} or None in {task_desc,task_date}:
+        return jsonify({"error" : "Bad Request: Invalid input"}),400
+
+    conn,cur = open_db()
+    user = cur.execute("SELECT * FROM Users WHERE id = ?",[user_id]).fetchall()
+
+    if len(user) == 0: 
+        return jsonify({"error" : "User not found"}),404
+
+    cur.execute("INSERT INTO Task(description,task_date,user_id) VALUES (?,?,?)",[task_desc,task_date,user_id])
     conn.commit()
-    all_task = cur.execute("SELECT * FROM Task WHERE user_id = ?",[user_id]).fetchall()
+
+    task_id = ((cur.execute("SELECT id FROM Task WHERE user_id = ? AND task_date = ? AND description = ?",[user_id,task_date,task_desc]).fetchall())[0])['id']
     close_db(conn,cur)
-    return jsonify(all_task)
+
+    return jsonify({
+        "id" : task_id,
+        "description" : task_desc,
+        "date" : task_date,
+        "user_id" : user_id
+    }),201
+
 
 @app.route('/api/task/<int:user_id>/<int:task_id>',methods=['GET'])
 def get_task(user_id,task_id):
     '''Get the information about a specific task of an user'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+    conn,cur = open_db()
+
+    all_user = cur.execute("SELECT * FROM Users WHERE id = ?",user_id).fetchall()
+    if len(all_user) == 0: return jsonify({"error": "User not found"}),404
+
     task = cur.execute("SELECT * FROM Task WHERE user_id = ? AND id =?",[user_id,task_id]).fetchall()
-    if len(task) == 0: return jsonify("Error: Task not found")
+    if len(task) == 0: return jsonify({"error": "Task not found"}),404
     close_db(conn,cur)
-    return jsonify(task[0])
+    return jsonify(task[0]),200
 
-@app.route('/api/task/<int:user_id>',methods=['GET'])
-def get_user_task(user_id):
-    '''Get all task of an specific user'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
-    task = cur.execute("SELECT * FROM Task WHERE user_id = ? ",[user_id]).fetchall()
-    close_db(conn,cur)
-    return jsonify(task)
-
-@app.route('/api/task/<int:user_id>',methods=['DELETE'])
-def delete_task(user_id):
-    '''Delete a specific task'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
-
-    all_users = cur.execute("SELECT id FROM Users").fetchall()
-    if user_id not in [x['id'] for x in all_users]: return jsonify("Error: User not found")
-
-    del_task = cur.execute("SELECT * FROM Task WHERE user_id = ?",[user_id]).fetchall()
-    if len(del_task) == 0: return jsonify("Error: Task not found")
-    cur.execute("DELETE FROM Task WHERE user_id = ?",[user_id])
-    conn.commit()
-    close_db(conn,cur)
-    return jsonify(del_task)
 
 @app.route('/api/task',methods=['GET'])
 def get_all_task():
     '''Get all task of any user'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+    conn,cur = open_db()
     task = cur.execute("SELECT * FROM Task ").fetchall()
     close_db(conn,cur)
-    return jsonify(task)
+    return jsonify(task),200
 
-@app.route('/api/task/<int:user_id>/<int:task_id>', methods=['PUT'])
+
+@app.route('/api/task/<int:user_id>',methods=['GET'])
+def get_user_task(user_id):
+    '''Get all task of an specific user'''
+    conn,cur = open_db()
+    all_user = cur.execute("SELECT * FROM Users WHERE id = ?",[user_id]).fetchall()
+    if len(all_user) == 0: return jsonify({"error": "User not found"}),404
+    task = cur.execute("SELECT * FROM Task WHERE user_id = ? ",[user_id]).fetchall()
+    close_db(conn,cur)
+    return jsonify(task),200
+
+
+@app.route('/api/task/<int:user_id>',methods=['DELETE'])
+def delete_task(user_id):
+    '''Delete a specific task'''
+    conn,cur = open_db()
+
+    user = cur.execute("SELECT * FROM Users WHERE id = ?",[user_id]).fetchall()
+    if len(user) == 0: return jsonify({"error": "User not found"}),404
+
+    del_task = cur.execute("SELECT * FROM Task WHERE user_id = ?",[user_id]).fetchall()
+    if len(del_task) == 0: return jsonify({"error": "Task not found"}),404
+
+    cur.execute("DELETE FROM Task WHERE user_id = ?",[user_id])
+    conn.commit()
+    close_db(conn,cur)
+    return jsonify(''),204
+
+
+@app.route('/api/task/<int:user_id>/<int:task_id>', methods=['PUT','DELETE'])
 def update_task(user_id,task_id):
     '''Update the information about a specific task of an user'''
-    task_info=request.get_json()
-    task_desc = task_info.get("description")
-    task_date = task_info.get("date")
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
-    all_users = cur.execute("SELECT id FROM Users").fetchall()
-    if user_id not in [x['id'] for x in all_users]: return jsonify("Error: User not found")
-    all_task = cur.execute("SELECT id FROM Task WHERE user_id = ?",[user_id]).fetchall()
-    if task_id not in [x['id'] for x in all_task]: return jsonify("Error: Task not found")
-    
-    if task_desc != None:
-        cur.execute("UPDATE Task SET description = ? WHERE id=? AND user_id = ?",[task_desc,task_id,user_id])
-    if task_date != None:
-        cur.execute("UPDATE Task SET task_date = ? WHERE id=? AND user_id = ?",[task_date,task_id,user_id])
-    conn.commit()
-    cur_task = cur.execute("SELECT * FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id]).fetchall()
-    close_db(conn,cur)
-    return jsonify(cur_task[0])
+    if requests.methods == 'PUT':
+        task_info=request.get_json()
+        task_desc = task_info.get("description")
+        task_date = task_info.get("date")
 
-@app.route('/api/task/<int:user_id>/<int:task_id>', methods=['DELETE'])
-def delete_task(user_id,task_id):
-    '''Delete a specific task'''
-    conn=sqlite3.connect("data.db")
-    conn.row_factory = dict_factory
-    cur=conn.cursor()
+        if task_date in {'',None} or task_desc in {'',None}:
+            return jsonify({"error" : "Invalid input"}),400
 
-    all_users = cur.execute("SELECT id FROM Users").fetchall()
-    if user_id not in [x['id'] for x in all_users]: return jsonify("Error: User not found")
-    all_task = cur.execute("SELECT id FROM Task WHERE user_id = ?",[user_id]).fetchall()
-    if task_id not in [x['id'] for x in all_task]: return jsonify("Error: Task not found")
+        conn,cur = open_db()
+        user = cur.execute("SELECT id FROM Users WHERE id = ?",[user_id]).fetchall()
+        if len(user): return jsonify({"error": "User not found"}),404
 
-    del_task = cur.execute("SELECT * FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id]).fetchall()
-    if len(del_task) == 0: return jsonify("Error: Task not found")
-    cur.execute("DELETE FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id])
-    conn.commit()
-    close_db(conn,cur)
-    return jsonify(del_task[0])
+        task = cur.execute("SELECT id FROM Task WHERE user_id = ? AND id = ?",[user_id,task_id]).fetchall()
+        if len(task): return jsonify({"error": "Task not found"}),404
+
+        if task_desc != None:
+            cur.execute("UPDATE Task SET description = ? WHERE id=? AND user_id = ?",[task_desc,task_id,user_id])
+        if task_date != None:
+            cur.execute("UPDATE Task SET task_date = ? WHERE id=? AND user_id = ?",[task_date,task_id,user_id])
+        conn.commit()
+
+        cur_task = cur.execute("SELECT * FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id]).fetchall()
+        close_db(conn,cur)
+        return jsonify(cur_task[0]),200
+
+# @app.route('/api/task/<int:user_id>/<int:task_id>', methods=['DELETE'])
+# def delete_task(user_id,task_id):
+#     '''Delete a specific task'''
+    elif requests.methods == 'DELETE' : # Manao AssertionError:View function mapping is overwriting an existing endpoint function: delete_task
+        #Foana leizy de nataoko an'izao
+        conn,cur = open_db()
+
+        user = cur.execute("SELECT * FROM Users WHERE id = ?",user_id).fetchall()
+        if len(user)==0: return jsonify({"error": "User not found"}),404
+
+        del_task = cur.execute("SELECT * FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id]).fetchall()
+        if len(del_task) == 0: return jsonify({"error": "Task not found"}),404
+
+        cur.execute("DELETE FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id])
+        conn.commit()
+        close_db(conn,cur)
+        return jsonify(''),204
 
     
 if __name__ == "__main__":
@@ -250,4 +288,3 @@ if __name__ == "__main__":
     app.run(host=host,port=port)
 
 
-    
