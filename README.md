@@ -1,6 +1,9 @@
 # Application de Gestion de tâches - *Back-end Flask*
 Ce script **python** est un back-end pour un site web de _gestion de tâches_.
-Developpé avec le framework **Flask**, il implemente plusieurs APIs pour celui-ci:
+Developpé avec le framework **Flask**, il implemente plusieurs APIs pour celui-ci.
+
+Le script est lancé tout simplement et ne prend pas d'argument.
+(*Ex: $ python main.py*)
 
 **Rq**: Chaque route est prefixée de **http://{host}:{port}** avec {host} et {port} les hotes et ports ouverts pour le site.
         _Exp_: par défaut, le login est: [http://127.0.0.1:5000/api/login](http://127.0.0.1:5000/api/login)
@@ -364,3 +367,4 @@ Developpé avec le framework **Flask**, il implemente plusieurs APIs pour celui-
   - Tous les données attendus et envoyés sont tous sous formes de data *JSON*
   - Par défaut, le host est [http://localhost](http://127.0.0.1) et le port par defaut est **5000** .Mais pour changer celui-ci, changer seulement les valeurs des variables **host** et **port** du script _main.py_ (ces variables se trouvent au _7 et 8eme ligne_ du code. )
   - La *suppression d'un utilisateur _efface toutes ses tâches_* dans la base de données.
+  - Certaines erreurs ne peuvent ne pas figurer dans la liste d'en haut mais generer par defaut par **Flask**.

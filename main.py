@@ -57,8 +57,8 @@ def login():
     for i in all_user:
         if i["username"] == name:
             if i["password"] == passwd:
-                return jsonify({"message":"OK: Connected"}),200
                 session['connected'] = True
+                return jsonify({"message":"OK: Connected"}),200
             return jsonify({"error" : "Unauthorized: wrong password"}),401
     return jsonify({"error" : "User not found"}),404
 
@@ -171,7 +171,7 @@ def create_task(user_id):
     if len(user) == 0: 
         return jsonify({"error" : "User not found"}),404
 
-    cur.execute("INSERT INTO Task(description,task_date,user_id) VALUES (?,?,?)",[task_desc,task_date,user_id])
+    cur.execute("INSERT INTO Task(description,task_date,user_id) VALUES (?,?,?)",[task_desc,task_date,int(user_id)])
     conn.commit()
 
     task_id = ((cur.execute("SELECT id FROM Task WHERE user_id = ? AND task_date = ? AND description = ?",[user_id,task_date,task_desc]).fetchall())[0])['id']
@@ -249,15 +249,15 @@ def update_task(user_id,task_id):
 
         conn,cur = open_db()
         user = cur.execute("SELECT id FROM Users WHERE id = ?",[user_id]).fetchall()
-        if len(user): return jsonify({"error": "User not found"}),404
+        if len(user) == 0 : return jsonify({"error": "User not found"}),404
 
         task = cur.execute("SELECT id FROM Task WHERE user_id = ? AND id = ?",[user_id,task_id]).fetchall()
-        if len(task): return jsonify({"error": "Task not found"}),404
+        if len(task) == 0: return jsonify({"error": "Task not found"}),404
 
         if task_desc != None:
-            cur.execute("UPDATE Task SET description = ? WHERE id=? AND user_id = ?",[task_desc,task_id,user_id])
+            cur.execute("UPDATE Task SET description = ? WHERE id=? AND user_id = ?",[task_desc,task_id,int(user_id)])
         if task_date != None:
-            cur.execute("UPDATE Task SET task_date = ? WHERE id=? AND user_id = ?",[task_date,task_id,user_id])
+            cur.execute("UPDATE Task SET task_date = ? WHERE id=? AND user_id = ?",[task_date,task_id,int(user_id)])
         conn.commit()
 
         cur_task = cur.execute("SELECT * FROM Task WHERE id = ? AND user_id = ?",[task_id,user_id]).fetchall()
