@@ -18,7 +18,9 @@ Le script est lancé tout simplement et ne prend pas d'argument.
   * **Succès:**
     ```
         {
-          "message": "OK: Connected"
+          "message": "OK: Connected",
+          "id" : user_id,
+          "username" : username
         }
     ```
       > Code : 200
@@ -81,7 +83,6 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       {
         "id" : new_id,
         "username" : username,
-        "password" : password
       }
     ```
       > Code: 201
@@ -100,6 +101,13 @@ Le script est lancé tout simplement et ne prend pas d'argument.
           }
         ```
           > Code: 409
+    - _Creation de compte lorqu'on est connecte et non administrateur_:
+        ```
+        {
+          "error": "Forbidden: Disconnect to create an account"
+        }
+        ```
+        > Code: 403
 
 ## 2 - Acces aux données d'un utilisateur:
 - **Route :** _/api/users/<user_id>_
@@ -110,42 +118,62 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       {
         "id" : user_id,
         "username" : username,
-        "password" : password
       }
     ```
       > Code: 200
-  * **Echec**: *Utilisateur non trouve*
+  * **Echec**: 
+    - *Utilisateur non trouve*
     ```
       {
         "error": "User not found"
       }
     ```
       > Code: 404
+    - *Non connecte*:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+        > Code: 401
+    - *Non autorise*:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 ## 2 - Acces aux données de tous les utilisateurs:
 - **Route :** _/api/users/_
 - **Methode :** GET
-- - **Réponses :**
-      ```
+- **Réponses :**
+    ```
         Liste des données:
           {
             "id" : user_id,
             "username" : username,
-            "password" : password
           }
-      ```
-          *Ps: Si aucun dans la base de données, alors vide*
-        > Code: 200
+    ```
+    *Ps: Si aucun dans la base de données, alors vide*
+
+      > Code: 200
+- **Echec** : _Non administrateur_
+    ```
+    {
+      "error" : "Unauthorized: Action not allowed"
+    }
+    ```
+    > Code: 401
     
 ## 3 - Mise a jour des données des utlisateurs:
 - **Route :** _/api/users/<user_id>_
 - **Methode :** PUT
-- **données attendus**: "username" et/ou "password" (Seul les données recus sont changes)
+- **données attendus**: "username" et/ou "new_password" (Seul les données recus sont changes) et password //obligatoire pour l'authentification
 - **Réponses :**
   * **Succès:**
         {
           "id" : user_id,
           "username" : new_username,
-          "password" : new_password
         }
         > Code: 200
   * **Echecs**:
@@ -162,7 +190,28 @@ Le script est lancé tout simplement et ne prend pas d'argument.
           "error" : "User not found"
         }
       ```
-        > Code: 404
+      > Code: 404
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
+    - _Mot de passe incorrect_
+      ```
+      {
+        "error" : "Unauthorized: wrong password"
+      }
+      ```
+      > Code: 401
 
 ## 4 - Suppression d'un utilisateur:
 - **Route :** _/api/users/<user_id>_
@@ -178,8 +227,25 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       } 
     ```
     > Code: 404
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
+
 -------------------------------------------------------------
 # III - Gestion des tâches 
+- **Format de date**: Year-month-day (separe par '-')
+
 ## 1 - Creation de tâche:
 - **Route :** _/api/task/<user_id>_
 - **Methode :** POST
@@ -210,7 +276,20 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
-
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 ## 2 - Acces aux données d'une tâche specifique d'un utilisateur
 - **Route :** /api/task/<user_id>/<task_id>
 - **Methode :** GET
@@ -240,7 +319,20 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
-
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 ## 2 - Acces aux données de toutes les tâches d'un utilisateur
 - **Route :** /api/task/<user_id>
 - **Methode :** GET
@@ -265,23 +357,20 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
-
-## 2 - Acces aux données de toutes les tâches
-- **Route :** /api/task
-- **Methode :** GET
-- **Réponses :**
-  * **Succès:**
-    ```
-      Liste de :
-      {
-        "id" : task_id,
-        "description" : task_desc,
-        "date" : task_date,
-        "user_id" : user_id
-      }
-    ```
-    *ps: Si la base de données est vide alors liste vide*
-    > Code: 200
+        - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 
 ## 3 - Mis a jour des données d'une tâche specifique
 - **Route :** /api/task/<user_id>/<task_id>
@@ -320,7 +409,20 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
-
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 ## 4 - Suppression de tâches specifiques
 - **Route :** /api/task/<user_id>/<task_id>
 - **Methode :** DELETE
@@ -343,8 +445,22 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 
-## 4 - Suppression de toutes les tâches d'un utilisateurs
+## 4 - Suppression de toutes les tâches d'un utilisateur
 - **Route :** /api/task/<user_id>
 - **Methode :** DELETE
 - **Réponses**:
@@ -359,7 +475,20 @@ Le script est lancé tout simplement et ne prend pas d'argument.
       }
       ```
       > Code: 404
-
+    - _Non connecte_:
+        ```
+          {
+              "error" : "Unauthorized: Action not allowed"
+          }
+        ```
+      > Code: 401
+    - _Non autorise_:
+        ```
+          {
+            "error" : "Access Forbidden"
+          }
+        ```
+        > Code: 403
 
 -------------------------------------------------------------------------------------------
 
@@ -368,3 +497,21 @@ Le script est lancé tout simplement et ne prend pas d'argument.
   - Par défaut, le host est [http://localhost](http://127.0.0.1) et le port par defaut est **5000** .Mais pour changer celui-ci, changer seulement les valeurs des variables **host** et **port** du script _main.py_ (ces variables se trouvent au _7 et 8eme ligne_ du code. )
   - La *suppression d'un utilisateur _efface toutes ses tâches_* dans la base de données.
   - Certaines erreurs ne peuvent ne pas figurer dans la liste d'en haut mais generer par defaut par **Flask**.
+
+## Compte Administrateur
+- Par defaut, un compte administrateur est cree avec un mot de passe _'admin'_ et nom d'utilisateur _'admin'_.
+- Changer ces donnees sont autorises et meme conseiller.
+- L'administrateur **peut faire toutes les operations sur la gestion des utilisateurs** lorsqu'il est connecte **sauf la mise a jour d'un profil**, meme si il a acces aux informations sur les utilisateurs.
+- Seul l'admin peut acceder a la liste de tous les utilisateurs.
+- Mais le compte admin **ne peut pas faire les operations sur les taches** des autres utilisateurs (que ce soit acces, creation, suppression ou mise-a-jour.)
+- Mais le compte admin est aussi comme les autres utilisateurs aussi (Peux mettre a jour son profil, creer et traiter des taches et meme supprimer son compte.)
+
+**_Rq_: Si le compte admin est supprime, on ne peut plus le recreer.**
+
+# Nouveaux: 
+- Rectification des erreurs sur l'authentification 
+- Suppression de "password" aux donnees obtenus sur les utilisateurs.
+- Ajout de nouvelles gestions d'erreurs.
+- Ajout du compte Admin
+- Suppression de la route **'/api/task'en methode['GET']** (Acces au donnees de toutes les taches.)
+- Le module **requests** n'est plus requis
