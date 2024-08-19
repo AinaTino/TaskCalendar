@@ -1,11 +1,13 @@
 import sqlite3
 from pathlib import Path 
 from flask import Flask, jsonify, request, session
+from flask_cors import CORS
 from datetime import datetime
 
-# To change host and port, change the value of these variables 
+# To change host, port and origin, change the value of these variables 
 host="127.0.0.1"
 port=5000
+origin = "http://127.0.0.1:5173"
 
 def create_db():
     '''Create a new database if the db don't exists'''
@@ -39,6 +41,7 @@ app=Flask(__name__)
 
 app.secret_key = '9dfeb43d7340b4b80817d514a1464c509060f354554fa2fc99922e608c7b7762'
 
+CORS(app, supports_credentials = True, resources = {r"/*" : {"origins" : origin}})
 if not Path('./data.db').resolve().exists() :
     create_db()
 

@@ -4,9 +4,9 @@ This application requires:
   - **python**
   - **python-modules** :
     * flask
+    * flask-cors
 
 Execute:
 ```
-# pip install flask 
+# pip install flask, flask-cors
 ```
-Or install [Anaconda](https://www.anaconda.com)

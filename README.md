@@ -497,6 +497,7 @@ Le script est lancé tout simplement et ne prend pas d'argument.
   - Par défaut, le host est [http://localhost](http://127.0.0.1) et le port par defaut est **5000** .Mais pour changer celui-ci, changer seulement les valeurs des variables **host** et **port** du script _main.py_ (ces variables se trouvent au _7 et 8eme ligne_ du code. )
   - La *suppression d'un utilisateur _efface toutes ses tâches_* dans la base de données.
   - Certaines erreurs ne peuvent ne pas figurer dans la liste d'en haut mais generer par defaut par **Flask**.
+  - *Changer aussi la variable **"origin"**, c'est le domaine autorise a acceder aux ressources, c'est a dire, l'url ou est heberge le front.*
 
 ## Compte Administrateur
 - Par defaut, un compte administrateur est cree avec un mot de passe _'admin'_ et nom d'utilisateur _'admin'_.
@@ -515,3 +516,4 @@ Le script est lancé tout simplement et ne prend pas d'argument.
 - Ajout du compte Admin
 - Suppression de la route **'/api/task'en methode['GET']** (Acces au donnees de toutes les taches.)
 - Le module **requests** n'est plus requis
+- Ajout de CORS
