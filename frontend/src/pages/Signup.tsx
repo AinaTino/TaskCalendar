@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
+import useUserStore from "@/store/UserStore";
+import { useState } from "react";
 
 const formSchema = z.object({
   username: z.string().min(2, {
@@ -21,6 +23,12 @@ const formSchema = z.object({
 });
 
 const Signup: React.FC = () => {
+  const { register } = useUserStore((state) => ({
+    register: state.register
+  }));
+  
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -29,19 +37,23 @@ const Signup: React.FC = () => {
     },
   });
 
-function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    
-
-     
+  function onSubmit(data: z.infer<typeof formSchema>) {
+    register(data)
+      .then(() => {
+        setSuccessMessage("Registration successful!");
+        form.reset(); // Reset the form to default values
+        
+      })
+      .catch((error) => {
+        console.error("Registration failed", error);
+      });
   }
 
   return (
-    <div className="max-w-7xl mx-auto ">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-center my-56">
-        
         <div className="w-[50%]">
-            <h1 className="font-bold text-3xl mb-4 text-blue-600">Task Manager</h1>
+          <h1 className="font-bold text-3xl mb-4 text-blue-600">Task Manager</h1>
           <p className="text-[22px] font-normal">Avec Task Manager, gerer votre emploi du temps avec efficacite</p>
         </div>
         <div className="w-[30%] border p-5 shadow-lg rounded-md bg-white">
@@ -75,8 +87,12 @@ function onSubmit(values: z.infer<typeof formSchema>) {
             </form>
           </Form>
 
+          {successMessage && (
+            <div className="mt-4 text-green-600 font-semibold">{successMessage}</div>
+          )}
+
           <div className="flex items-center justify-center my-4">
-            <Button  className="bg-green-600 text-white  h-[50px] font-semibold text-md"><Link to='/login'> j'ai un compte</Link></Button>
+            <Button className="bg-green-600 text-white h-[50px] font-semibold text-md"><Link to='/login'> j'ai un compte</Link></Button>
           </div>
         </div>
       </div>
