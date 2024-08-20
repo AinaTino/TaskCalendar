@@ -1,36 +1,30 @@
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Link, useNavigate } from "react-router-dom";
-import useUserStore from "@/store/UserStore";
-import { useState } from "react";
+// src/pages/Login.tsx
+
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Form, FormField, FormItem, FormControl, FormMessage } from '@/components/ui/form';
+import { Link, useNavigate } from 'react-router-dom';
+import useUserStore from '@/store/UserStore';
+import { useCookies } from 'react-cookie';
 
 const formSchema = z.object({
-  username: z.string().min(2, {
-    message: "L’e-mail ou le numéro de mobile entré n’est pas associé à un compte. Trouvez votre compte et connectez-vous.",
-  }).max(50),
-  password: z.string().min(2, {
-  }).max(50),
+  username: z.string().min(2, "Username is required").max(50),
+  password: z.string().min(2, "Password is required").max(50),
 });
 
 const Login: React.FC = () => {
   const { authLogin } = useUserStore((state) => ({
     authLogin: state.authLogin
   }));
-  const navigate = useNavigate(); // Hook for navigation
-  
+  const navigate = useNavigate();
+  const [cookies, setCookie] = useCookies(['authToken']);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -41,12 +35,21 @@ const Login: React.FC = () => {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await authLogin(values);
-      setMessage("Login successful!");
-      setMessageType('success');
-      setTimeout(() => {
-        navigate("/"); // Navigate to the dashboard or another protected route
-      }, 1000);
+      const response = await authLogin(values);
+      console.log('Login response:', response); // Log the response to check its structure
+      
+      // Assuming the token is stored in response.data.token
+      const token = response?.data?.token;
+      if (token) {
+        setCookie('authToken', token, { path: '/' }); // Set the cookie
+        setMessage("Login successful!");
+        setMessageType('success');
+        setTimeout(() => {
+          navigate("/"); // Navigate to the home page
+        }, 1000);
+      } else {
+        throw new Error("Token not found in the response");
+      }
     } catch (error) {
       setMessage("Login failed. Please try again.");
       setMessageType('error');
@@ -59,7 +62,7 @@ const Login: React.FC = () => {
       <div className="flex items-center justify-center my-56">
         <div className="w-[50%]">
           <h1 className="font-bold text-3xl mb-4 text-blue-600">Task Manager</h1>
-          <p className="text-[22px] font-normal">Avec Task Manager, gerer votre emploi du temps avec efficacite</p>
+          <p className="text-[22px] font-normal">Avec Task Manager, gérez votre emploi du temps avec efficacité</p>
         </div>
         <div className="w-[30%] border p-5 shadow-lg rounded-md bg-white">
           <Form {...form}>
@@ -88,7 +91,7 @@ const Login: React.FC = () => {
                   </FormItem>
                 )}
               />
-              <Button className="bg-blue-600 w-full text-white capitalize text-[15px] font-semibold h-[50px]" type="submit">se connecter</Button>
+              <Button className="bg-blue-600 w-full text-white capitalize text-[15px] font-semibold h-[50px]" type="submit">Se connecter</Button>
             </form>
           </Form>
 
@@ -99,7 +102,9 @@ const Login: React.FC = () => {
           )}
 
           <div className="flex items-center justify-center my-5">
-            <Button className="bg-green-600 text-white h-[50px] font-semibold text-md"><Link to='/register'> Créer un nouveau compte</Link></Button>
+            <Button className="bg-green-600 text-white h-[50px] font-semibold text-md">
+              <Link to='/register'>Créer un nouveau compte</Link>
+            </Button>
           </div>
         </div>
       </div>

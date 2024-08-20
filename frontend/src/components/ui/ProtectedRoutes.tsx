@@ -1,18 +1,24 @@
-import useUserStore from '@/store/UserStore'
-import React from 'react'
-import { Navigate ,Outlet} from 'react-router-dom'
+// src/components/ui/ProtectedRoutes.tsx
+
+import React, { useEffect, useState } from 'react';
+import { Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { getCookie } from '@/utils/cookieUtils';
 
 const ProtectedRoutes: React.FC = () => {
-    const { users } = useUserStore((state) => ({
-      users: state.users
-    }));
-  
-    const isAuth = users.length > 0;
-  
-    console.log("isAuth:", isAuth); // Add this to debug
-  
-    return isAuth ? <Outlet /> : <Navigate to='/login' />;
-  }
-  
+    const [isAuth, setIsAuth] = useState<boolean>(false);
+    const navigate=useNavigate()
+    useEffect(() => {
+        const authToken = getCookie('authToken');
+        console.log('Auth Token:', authToken); // Add logging to check token value
+        setIsAuth(!!authToken);
+        navigate('/')
+        if(authToken==null){
+          navigate('/login')
+        }
+      
+    }, []);
 
-export default ProtectedRoutes
+    return isAuth ? <Outlet /> : <Navigate to='/login' />;
+};
+
+export default ProtectedRoutes;
