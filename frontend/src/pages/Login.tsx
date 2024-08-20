@@ -10,7 +10,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import useUserStore from "@/store/UserStore";
+import { useState } from "react";
 
 const formSchema = z.object({
   username: z.string().min(2, {
@@ -21,6 +23,14 @@ const formSchema = z.object({
 });
 
 const Login: React.FC = () => {
+  const { authLogin } = useUserStore((state) => ({
+    authLogin: state.authLogin
+  }));
+  const navigate = useNavigate(); // Hook for navigation
+  
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<'success' | 'error'>('success');
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -29,18 +39,26 @@ const Login: React.FC = () => {
     },
   });
 
-function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    
-
-     
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      await authLogin(values);
+      setMessage("Login successful!");
+      setMessageType('success');
+      setTimeout(() => {
+        navigate("/"); // Navigate to the dashboard or another protected route
+      }, 1000);
+    } catch (error) {
+      setMessage("Login failed. Please try again.");
+      setMessageType('error');
+      console.error("Login failed", error);
+    }
   }
 
   return (
-    <div className="max-w-7xl mx-auto ">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-center my-56">
         <div className="w-[50%]">
-            <h1 className="font-bold text-3xl mb-4 text-blue-600">Task Manager</h1>
+          <h1 className="font-bold text-3xl mb-4 text-blue-600">Task Manager</h1>
           <p className="text-[22px] font-normal">Avec Task Manager, gerer votre emploi du temps avec efficacite</p>
         </div>
         <div className="w-[30%] border p-5 shadow-lg rounded-md bg-white">
@@ -74,9 +92,14 @@ function onSubmit(values: z.infer<typeof formSchema>) {
             </form>
           </Form>
 
-         
+          {message && (
+            <div className={`mt-4 font-semibold ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {message}
+            </div>
+          )}
+
           <div className="flex items-center justify-center my-5">
-            <Button  className="bg-green-600 text-white  h-[50px] font-semibold text-md"><Link to='/register'> Creer nouveau comptes</Link></Button>
+            <Button className="bg-green-600 text-white h-[50px] font-semibold text-md"><Link to='/register'> Créer un nouveau compte</Link></Button>
           </div>
         </div>
       </div>
